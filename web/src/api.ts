@@ -37,7 +37,7 @@ export async function getLogs(params?: {
     // Check if response is HTML (error page) instead of JSON
     const contentType = response.headers.get('content-type')
     if (contentType && !contentType.includes('application/json')) {
-      const text = await response.text()
+      await response.text() // Read the response to clear it
       throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}. Check that the Edge Function is deployed and the URL is correct.`)
     }
     const error = await response.json().catch(() => ({ error: 'Unknown error' }))
@@ -78,7 +78,7 @@ export async function logMeal(data: {
     // Check if response is HTML (error page) instead of JSON
     const contentType = response.headers.get('content-type')
     if (contentType && !contentType.includes('application/json')) {
-      const text = await response.text()
+      await response.text() // Read the response to clear it
       throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}. Check that the Edge Function is deployed and the URL is correct.`)
     }
     const error = await response.json().catch(() => ({ error: 'Unknown error' }))

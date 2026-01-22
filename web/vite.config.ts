@@ -18,17 +18,17 @@ export default defineConfig({
         theme_color: '#3b82f6',
         icons: [
           {
-            src: '/icon-192.png',
+            src: '/icon.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/icon-512.png',
+            src: '/icon.png',
             sizes: '512x512',
             type: 'image/png',
           },
         ],
-        apple_touch_icon: '/apple-touch-icon.png',
+        apple_touch_icon: '/icon.png',
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],

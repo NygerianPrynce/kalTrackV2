@@ -1,16 +1,25 @@
-# PWA Icons Required
+# PWA Icon Setup
 
-You need to create three icon files for the PWA to work properly on iOS:
+## Simple Setup - One Icon File
 
-1. **icon-192.png** - 192x192 pixels
-2. **icon-512.png** - 512x512 pixels  
-3. **apple-touch-icon.png** - 180x180 pixels
+Just create **ONE** icon file:
 
-Place these files in this directory (`web/public/`).
+1. **Create `icon.png`** in the `web/public/` directory
+   - Size: **512x512 pixels** (or larger, square)
+   - Format: PNG
+   - The app will use this same file for all icon sizes
+
+2. **That's it!** The PWA will automatically use this icon for:
+   - App icons (192x192, 512x512)
+   - iOS home screen icon (180x180)
+   - All other PWA icon sizes
+
+## How to Create the Icon
 
 You can:
-- Use any image editor (Photoshop, GIMP, etc.)
+- Use ChatGPT/DALL-E to generate an icon (ask for "512x512 PNG app icon for meal tracking app")
+- Use any image editor
 - Use online tools like https://realfavicongenerator.net/
-- Create simple colored squares with text as placeholders
+- Create a simple square image with your design
 
-The icons should be square PNG images with your app logo or a simple design.
+The icon should be square and work well at small sizes. A simple design with fork/knife or "K" letter works great!
