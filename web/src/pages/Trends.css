@@ -1,0 +1,92 @@
+.trends {
+  padding-bottom: 24px;
+}
+
+.range-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.range-selector button {
+  flex: 1;
+  min-width: 70px;
+  padding: 10px 16px;
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.range-selector button.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #1a1a1a;
+}
+
+.avg-card {
+  text-align: center;
+}
+
+.avg-stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 16px;
+}
+
+.avg-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.avg-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.avg-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.chart-card {
+  padding: 16px;
+}
+
+.error-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #ef4444;
+}
+
+.retry-button {
+  background: #3b82f6;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 12px;
+}
