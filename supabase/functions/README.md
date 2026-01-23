@@ -27,9 +27,11 @@ supabase secrets set SERVICE_ROLE_KEY=your-service-role-key
 ### Deploy
 
 ```bash
-supabase functions deploy log-meal
-supabase functions deploy get-logs
-supabase functions deploy health
+supabase functions deploy log-meal --no-verify-jwt
+supabase functions deploy get-logs --no-verify-jwt
+supabase functions deploy health --no-verify-jwt
+supabase functions deploy delete-meal --no-verify-jwt
+supabase functions deploy update-meal --no-verify-jwt
 ```
 
 ### Test

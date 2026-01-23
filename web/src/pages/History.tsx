@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getLogs, logMeal } from '../api'
+import { getLogs, logMeal, deleteMeal, updateMeal } from '../api'
 import { GetLogsResponse, MealLog } from '../types'
 import './History.css'
 
@@ -12,6 +12,13 @@ export default function History() {
   const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [quickAddText, setQuickAddText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [editingLog, setEditingLog] = useState<MealLog | null>(null)
+  const [editValues, setEditValues] = useState({
+    protein_g: 0,
+    carbs_g: 0,
+    fat_g: 0,
+    fiber_g: 0,
+  })
 
   useEffect(() => {
     loadData()
@@ -55,6 +62,50 @@ export default function History() {
       newExpanded.add(id)
     }
     setExpandedLogs(newExpanded)
+  }
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('Delete this meal?')) return
+
+    try {
+      await deleteMeal(id)
+      await loadData()
+      // Remove from expanded if it was expanded
+      const newExpanded = new Set(expandedLogs)
+      newExpanded.delete(id)
+      setExpandedLogs(newExpanded)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete meal')
+    }
+  }
+
+  const handleEdit = (log: MealLog, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingLog(log)
+    setEditValues({
+      protein_g: log.totals.protein_g,
+      carbs_g: log.totals.carbs_g,
+      fat_g: log.totals.fat_g,
+      fiber_g: log.totals.fiber_g,
+    })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingLog) return
+
+    try {
+      setError(null)
+      await updateMeal(editingLog.id, editValues)
+      setEditingLog(null)
+      await loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update meal')
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingLog(null)
   }
 
   if (loading && !data) {
@@ -132,6 +183,8 @@ export default function History() {
               log={log}
               expanded={expandedLogs.has(log.id)}
               onToggle={() => toggleLog(log.id)}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
             />
           ))}
         </div>
@@ -143,6 +196,87 @@ export default function History() {
           <button onClick={loadData} className="retry-button-small">Retry</button>
         </div>
       )}
+
+      {editingLog && (
+        <EditModal
+          log={editingLog}
+          values={editValues}
+          onValuesChange={setEditValues}
+          onSave={handleSaveEdit}
+          onCancel={handleCancelEdit}
+        />
+      )}
+    </div>
+  )
+}
+
+function EditModal({
+  log,
+  values,
+  onValuesChange,
+  onSave,
+  onCancel,
+}: {
+  log: MealLog
+  values: { protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }
+  onValuesChange: (values: { protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }) => void
+  onSave: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <h3 className="modal-title">Edit Macros</h3>
+        <p className="modal-subtitle">{log.raw_text}</p>
+        
+        <div className="edit-form">
+          <div className="edit-field">
+            <label>Protein (g)</label>
+            <input
+              type="number"
+              value={values.protein_g}
+              onChange={(e) => onValuesChange({ ...values, protein_g: parseFloat(e.target.value) || 0 })}
+              step="0.1"
+            />
+          </div>
+          <div className="edit-field">
+            <label>Carbs (g)</label>
+            <input
+              type="number"
+              value={values.carbs_g}
+              onChange={(e) => onValuesChange({ ...values, carbs_g: parseFloat(e.target.value) || 0 })}
+              step="0.1"
+            />
+          </div>
+          <div className="edit-field">
+            <label>Fat (g)</label>
+            <input
+              type="number"
+              value={values.fat_g}
+              onChange={(e) => onValuesChange({ ...values, fat_g: parseFloat(e.target.value) || 0 })}
+              step="0.1"
+            />
+          </div>
+          <div className="edit-field">
+            <label>Fiber (g)</label>
+            <input
+              type="number"
+              value={values.fiber_g}
+              onChange={(e) => onValuesChange({ ...values, fiber_g: parseFloat(e.target.value) || 0 })}
+              step="0.1"
+            />
+          </div>
+        </div>
+
+        <div className="modal-actions">
+          <button className="cancel-button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button className="save-button" onClick={onSave}>
+            Save
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -151,10 +285,14 @@ function LogCard({
   log,
   expanded,
   onToggle,
+  onDelete,
+  onEdit,
 }: {
   log: MealLog
   expanded: boolean
   onToggle: () => void
+  onDelete: (id: string, e: React.MouseEvent) => void
+  onEdit: (log: MealLog, e: React.MouseEvent) => void
 }) {
   const mealTime = new Date(log.meal_time)
   const dateStr = mealTime.toLocaleDateString('en-US', {
@@ -194,6 +332,14 @@ function LogCard({
             <span>C: {log.totals.carbs_g.toFixed(1)}g</span>
             <span>F: {log.totals.fat_g.toFixed(1)}g</span>
             <span>Fiber: {log.totals.fiber_g.toFixed(1)}g</span>
+          </div>
+          <div className="log-actions">
+            <button className="edit-button" onClick={(e) => onEdit(log, e)}>
+              Edit Macros
+            </button>
+            <button className="delete-button" onClick={(e) => onDelete(log.id, e)}>
+              Delete
+            </button>
           </div>
           {log.assumptions.length > 0 && (
             <div className="log-assumptions">

@@ -37,7 +37,6 @@ interface OpenAIResponse {
 
 interface RequestBody {
   text: string;
-  timestamp?: string;
   meal_type?: string;
 }
 
@@ -243,19 +242,9 @@ serve(async (req) => {
       );
     }
 
-    // Determine meal_time
-    let meal_time: Date;
-    if (body.timestamp) {
-      meal_time = new Date(body.timestamp);
-      if (isNaN(meal_time.getTime())) {
-        return new Response(
-          JSON.stringify({ error: "Invalid timestamp format" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    } else {
-      meal_time = new Date();
-    }
+    // Use current time (stored as UTC in database, will display in CST on frontend)
+    // The database stores timestamptz in UTC, frontend handles timezone conversion
+    const meal_time = new Date();
 
     // Call OpenAI
     let parsed: OpenAIResponse;

@@ -87,3 +87,70 @@ export async function logMeal(data: {
 
   return response.json()
 }
+
+export async function deleteMeal(id: string): Promise<{ ok: boolean; id: string }> {
+  if (!SUPABASE_URL) {
+    throw new Error('Supabase URL not configured. Please set VITE_SUPABASE_URL in your .env file.')
+  }
+
+  const url = `${SUPABASE_FUNCTIONS_URL}/delete-meal`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ id }),
+  })
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type')
+    if (contentType && !contentType.includes('application/json')) {
+      await response.text()
+      throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}.`)
+    }
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+    throw new Error(error.error || `HTTP ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function updateMeal(
+  id: string,
+  totals: {
+    calories?: number
+    protein_g?: number
+    carbs_g?: number
+    fat_g?: number
+    fiber_g?: number
+    sugar_g?: number
+    sodium_mg?: number
+  }
+): Promise<{ ok: boolean; data: any }> {
+  if (!SUPABASE_URL) {
+    throw new Error('Supabase URL not configured. Please set VITE_SUPABASE_URL in your .env file.')
+  }
+
+  const url = `${SUPABASE_FUNCTIONS_URL}/update-meal`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ id, totals }),
+  })
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type')
+    if (contentType && !contentType.includes('application/json')) {
+      await response.text()
+      throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}.`)
+    }
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+    throw new Error(error.error || `HTTP ${response.status}`)
+  }
+
+  return response.json()
+}

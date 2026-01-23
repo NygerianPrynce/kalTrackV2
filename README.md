@@ -72,9 +72,11 @@ supabase secrets set SERVICE_ROLE_KEY=your-service-role-key-here
 Deploy the functions:
 
 ```bash
-supabase functions deploy log-meal
-supabase functions deploy get-logs
-supabase functions deploy health
+supabase functions deploy log-meal --no-verify-jwt
+supabase functions deploy get-logs --no-verify-jwt
+supabase functions deploy health --no-verify-jwt
+supabase functions deploy delete-meal --no-verify-jwt
+supabase functions deploy update-meal --no-verify-jwt
 ```
 
 Verify deployment:
@@ -184,12 +186,7 @@ Open `http://localhost:5173` in your browser.
    - Add it
    - Variable name: `mealText`
 
-   **Action 2: Get Current Date**
-   - Search for "Get Current Date"
-   - Add it
-   - Variable name: `now`
-
-   **Action 3: Get Contents of URL**
+   **Action 2: Get Contents of URL**
    - Search for "Get Contents of URL"
    - Add it
    - Configure:
@@ -202,17 +199,19 @@ Open `http://localhost:5173` in your browser.
      - **JSON Body**:
        ```json
        {
-         "text": mealText,
-         "timestamp": now
+         "text": [Dictated Text]
        }
        ```
+     - Use magic wand icon to select variable:
+       - `text` → "Dictated Text"
+     - **Note**: Timestamp is automatically set to current CST time on the server
 
-   **Action 4: Get Dictionary Value**
+   **Action 3: Get Dictionary Value**
    - Search for "Get Dictionary Value"
    - Add it
    - **Get**: `speech` (from the previous action's result)
 
-   **Action 5: Speak Text**
+   **Action 4: Speak Text**
    - Search for "Speak Text"
    - Add it
    - Use the value from the previous action
