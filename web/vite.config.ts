@@ -32,6 +32,11 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // Take control immediately so deploys propagate without a manual
+        // close/reopen, and purge old precaches to avoid stale bundles.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
       },
     }),
   ],
