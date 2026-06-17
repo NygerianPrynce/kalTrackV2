@@ -390,3 +390,121 @@
   font-size: 12px;
   font-weight: 500;
 }
+
+/* --- Type-to-log review flow --- */
+.review-section {
+  margin-top: 12px;
+}
+
+.review-hint {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 12px;
+}
+
+.review-confidence {
+  color: #b45309;
+}
+
+.review-item {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.review-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.review-remove {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.review-qty {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.review-macros-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.review-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.review-field label {
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.review-field input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 4px;
+  font-size: 13px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.review-total {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 4px 0 12px;
+}
+
+.review-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.review-actions .submit-button {
+  flex: 1;
+}
+
+.secondary-button {
+  background: #e5e7eb;
+  color: #374151;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}

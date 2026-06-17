@@ -1,4 +1,4 @@
-import { GetLogsResponse, UserSettings, DailyTemplate, NutritionGoals } from './types'
+import { GetLogsResponse, UserSettings, DailyTemplate, NutritionGoals, MealItem, MealTotals } from './types'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || ''
 
@@ -103,6 +103,33 @@ export async function logTemplate(id: string): Promise<{ ok: boolean; id: string
 // ----- Water -----
 export async function logWater(amount_oz: number): Promise<{ ok: boolean; amount_oz: number }> {
   return apiFetch('log-water', { method: 'POST', body: JSON.stringify({ amount_oz }) })
+}
+
+// ----- Type-to-log: parse first (no save), then confirm -----
+export interface MealPreview {
+  ok: boolean
+  preview: true
+  meal_summary: string
+  items: MealItem[]
+  totals: MealTotals
+  confidence: number
+  assumptions: string[]
+}
+
+export async function previewMeal(text: string): Promise<MealPreview> {
+  return apiFetch('log-meal', {
+    method: 'POST',
+    body: JSON.stringify({ text, preview: true, tz: TZ() }),
+  })
+}
+
+export async function saveMeal(payload: {
+  raw_text: string
+  items: MealItem[]
+  confidence?: number
+  assumptions?: string[]
+}): Promise<{ ok: boolean; id: string; totals: MealTotals }> {
+  return apiFetch('save-meal', { method: 'POST', body: JSON.stringify({ ...payload, tz: TZ() }) })
 }
 
 export async function logMeal(data: {

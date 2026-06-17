@@ -39,6 +39,7 @@ interface RequestBody {
   text: string;
   meal_type?: string;
   tz?: string;
+  preview?: boolean;
 }
 
 // Parse a free-text water amount -> ounces (null if it's not a water phrase)
@@ -286,9 +287,10 @@ serve(async (req) => {
       throw new Error("Supabase credentials not configured");
     }
     const supabase = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
+    const preview = body.preview === true;
 
     // --- Fast path 1: water ("log 16oz water") -> water_logs, no OpenAI ---
-    const waterOz = parseWaterOz(text);
+    const waterOz = preview ? null : parseWaterOz(text);
     if (waterOz !== null) {
       const amount = Math.round(waterOz * 10) / 10;
       const { error: wErr } = await supabase
@@ -307,7 +309,7 @@ serve(async (req) => {
     }
 
     // --- Fast path 2: a saved daily template by name/alias, no OpenAI ---
-    {
+    if (!preview) {
       const needle = text.toLowerCase();
       const { data: templates } = await supabase
         .from("daily_templates")
@@ -375,6 +377,23 @@ serve(async (req) => {
           details: error instanceof Error ? error.message : "Unknown error",
         }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Preview mode: return the parsed result without saving so the
+    // user can review/edit each item before confirming.
+    if (preview) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          preview: true,
+          meal_summary: parsed.meal_summary,
+          items: parsed.items,
+          totals: parsed.totals,
+          confidence: parsed.confidence,
+          assumptions: parsed.assumptions,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

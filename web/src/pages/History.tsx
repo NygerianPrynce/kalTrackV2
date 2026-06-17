@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getLogs, logMeal, deleteMeal, updateMeal } from '../api'
-import { GetLogsResponse, MealLog } from '../types'
+import { getLogs, deleteMeal, updateMeal, previewMeal, saveMeal } from '../api'
+import { GetLogsResponse, MealLog, MealItem } from '../types'
 import './History.css'
 
 export default function History() {
@@ -12,6 +12,9 @@ export default function History() {
   const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [quickAddText, setQuickAddText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [parsing, setParsing] = useState(false)
+  const [reviewItems, setReviewItems] = useState<MealItem[] | null>(null)
+  const [reviewMeta, setReviewMeta] = useState<{ confidence: number; assumptions: string[] } | null>(null)
   const [editingLog, setEditingLog] = useState<MealLog | null>(null)
   const [editValues, setEditValues] = useState({
     protein_g: 0,
@@ -37,21 +40,63 @@ export default function History() {
     }
   }
 
-  const handleQuickAdd = async () => {
+  // Step 1: parse the typed text with AI but don't save yet
+  const handleParse = async () => {
     if (!quickAddText.trim()) return
+    try {
+      setParsing(true)
+      setError(null)
+      const result = await previewMeal(quickAddText.trim())
+      setReviewItems(result.items)
+      setReviewMeta({ confidence: result.confidence, assumptions: result.assumptions })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to parse meal')
+    } finally {
+      setParsing(false)
+    }
+  }
 
+  // Edit a single field of a reviewed item
+  const updateReviewItem = (idx: number, field: keyof MealItem, value: string) => {
+    setReviewItems((prev) => {
+      if (!prev) return prev
+      const next = [...prev]
+      const numeric = field !== 'name' && field !== 'qty'
+      next[idx] = { ...next[idx], [field]: numeric ? parseFloat(value) || 0 : value }
+      return next
+    })
+  }
+
+  const removeReviewItem = (idx: number) => {
+    setReviewItems((prev) => (prev ? prev.filter((_, i) => i !== idx) : prev))
+  }
+
+  // Step 2: save the confirmed/edited items
+  const handleConfirmSave = async () => {
+    if (!reviewItems || reviewItems.length === 0) return
     try {
       setSubmitting(true)
       setError(null)
-      await logMeal({ text: quickAddText.trim() })
-      setQuickAddText('')
-      setShowQuickAdd(false)
+      await saveMeal({
+        raw_text: quickAddText.trim(),
+        items: reviewItems,
+        confidence: reviewMeta?.confidence,
+        assumptions: reviewMeta?.assumptions,
+      })
+      resetQuickAdd()
       await loadData()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to log meal')
+      setError(err instanceof Error ? err.message : 'Failed to save meal')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const resetQuickAdd = () => {
+    setQuickAddText('')
+    setReviewItems(null)
+    setReviewMeta(null)
+    setShowQuickAdd(false)
   }
 
   const toggleLog = (id: string) => {
@@ -135,7 +180,7 @@ export default function History() {
         <h1 className="page-title">History</h1>
         <button
           className="add-button"
-          onClick={() => setShowQuickAdd(!showQuickAdd)}
+          onClick={() => (showQuickAdd ? resetQuickAdd() : setShowQuickAdd(true))}
         >
           {showQuickAdd ? 'Cancel' : '+ Add Meal'}
         </button>
@@ -143,21 +188,84 @@ export default function History() {
 
       {showQuickAdd && (
         <div className="quick-add-card">
-          <h3 className="card-title">Quick Add Meal</h3>
+          <h3 className="card-title">Add Meal</h3>
           <textarea
             className="quick-add-input"
-            placeholder="Describe what you ate, e.g., 'Grilled chicken breast, 200g, with brown rice and steamed broccoli'"
+            placeholder="Type what you ate, e.g., 'Jack Link's beef jerky packet'"
             value={quickAddText}
             onChange={(e) => setQuickAddText(e.target.value)}
             rows={3}
+            disabled={!!reviewItems}
           />
-          <button
-            className="submit-button"
-            onClick={handleQuickAdd}
-            disabled={!quickAddText.trim() || submitting}
-          >
-            {submitting ? 'Logging...' : 'Log Meal'}
-          </button>
+
+          {!reviewItems ? (
+            <button
+              className="submit-button"
+              onClick={handleParse}
+              disabled={!quickAddText.trim() || parsing}
+            >
+              {parsing ? 'Looking it up…' : 'Look up nutrition'}
+            </button>
+          ) : (
+            <div className="review-section">
+              <p className="review-hint">
+                Review and edit each food, then confirm.
+                {reviewMeta && reviewMeta.confidence < 0.7 && (
+                  <span className="review-confidence"> (AI confidence {Math.round(reviewMeta.confidence * 100)}%)</span>
+                )}
+              </p>
+
+              {reviewItems.length === 0 && (
+                <div className="empty-state">All items removed. Re-parse or cancel.</div>
+              )}
+
+              {reviewItems.map((item, idx) => (
+                <div key={idx} className="review-item">
+                  <div className="review-item-head">
+                    <input
+                      className="review-name"
+                      value={item.name}
+                      onChange={(e) => updateReviewItem(idx, 'name', e.target.value)}
+                    />
+                    <button className="review-remove" onClick={() => removeReviewItem(idx)} aria-label="Remove">×</button>
+                  </div>
+                  <input
+                    className="review-qty"
+                    value={item.qty}
+                    onChange={(e) => updateReviewItem(idx, 'qty', e.target.value)}
+                    placeholder="Quantity"
+                  />
+                  <div className="review-macros-grid">
+                    <ReviewField label="Cal" value={item.calories} onChange={(v) => updateReviewItem(idx, 'calories', v)} />
+                    <ReviewField label="P" value={item.protein_g} onChange={(v) => updateReviewItem(idx, 'protein_g', v)} />
+                    <ReviewField label="C" value={item.carbs_g} onChange={(v) => updateReviewItem(idx, 'carbs_g', v)} />
+                    <ReviewField label="F" value={item.fat_g} onChange={(v) => updateReviewItem(idx, 'fat_g', v)} />
+                    <ReviewField label="Fib" value={item.fiber_g} onChange={(v) => updateReviewItem(idx, 'fiber_g', v)} />
+                  </div>
+                </div>
+              ))}
+
+              <div className="review-total">
+                Total: {Math.round(reviewItems.reduce((s, i) => s + (i.calories || 0), 0))} kcal ·
+                P {reviewItems.reduce((s, i) => s + (i.protein_g || 0), 0).toFixed(1)} ·
+                C {reviewItems.reduce((s, i) => s + (i.carbs_g || 0), 0).toFixed(1)} ·
+                F {reviewItems.reduce((s, i) => s + (i.fat_g || 0), 0).toFixed(1)}
+              </div>
+
+              <div className="review-actions">
+                <button className="secondary-button" onClick={() => { setReviewItems(null); setReviewMeta(null) }}>
+                  Re-parse
+                </button>
+                <button
+                  className="submit-button"
+                  onClick={handleConfirmSave}
+                  disabled={submitting || reviewItems.length === 0}
+                >
+                  {submitting ? 'Saving…' : 'Confirm & Save'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -206,6 +314,29 @@ export default function History() {
           onCancel={handleCancelEdit}
         />
       )}
+    </div>
+  )
+}
+
+function ReviewField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="review-field">
+      <label>{label}</label>
+      <input
+        type="number"
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        min="0"
+      />
     </div>
   )
 }
