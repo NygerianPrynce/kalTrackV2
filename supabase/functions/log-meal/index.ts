@@ -181,17 +181,36 @@ function normalizeResponse(data: OpenAIResponse): OpenAIResponse {
   };
 }
 
+// Pull all assistant text out of a Responses API result, regardless of
+// whether tool calls (web search) were interleaved.
+function extractOutputText(data: any): string {
+  if (typeof data.output_text === "string" && data.output_text.trim()) {
+    return data.output_text;
+  }
+  const chunks: string[] = [];
+  for (const item of data.output ?? []) {
+    if (item.type === "message" && Array.isArray(item.content)) {
+      for (const c of item.content) {
+        if (c.type === "output_text" && typeof c.text === "string") chunks.push(c.text);
+      }
+    }
+  }
+  return chunks.join("\n");
+}
+
 async function callOpenAI(text: string, retry = false): Promise<OpenAIResponse> {
   if (!OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY not configured");
   }
 
-  const prompt = retry
-    ? `${SYSTEM_PROMPT}\n\nFix the JSON response for this meal: "${text}"`
-    : `Parse this meal description: "${text}"`;
+  const instruction = retry
+    ? `Search the web for accurate nutrition facts, then output ONLY the JSON (no markdown) for this meal: "${text}"`
+    : `Search the web for accurate nutrition facts for branded or packaged items when helpful, then parse this meal: "${text}"`;
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    // Responses API + web_search tool so the model can look up real
+    // nutrition labels (e.g. "Jack Link's beef jerky packet") before answering.
+    const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -199,12 +218,10 @@ async function callOpenAI(text: string, retry = false): Promise<OpenAIResponse> 
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
+        tools: [{ type: "web_search" }],
         temperature: 0.3,
+        instructions: SYSTEM_PROMPT,
+        input: instruction,
       }),
     });
 
@@ -214,16 +231,22 @@ async function callOpenAI(text: string, retry = false): Promise<OpenAIResponse> 
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = extractOutputText(data);
 
-    if (!content) {
+    if (!content || !content.trim()) {
       throw new Error("No content in OpenAI response");
     }
 
-    // Parse JSON, handling markdown code blocks if present
+    // Extract JSON, tolerating markdown fences or surrounding prose/citations.
     let jsonStr = content.trim();
     if (jsonStr.startsWith("```")) {
       jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    } else {
+      const first = jsonStr.indexOf("{");
+      const last = jsonStr.lastIndexOf("}");
+      if (first !== -1 && last !== -1 && last > first) {
+        jsonStr = jsonStr.slice(first, last + 1);
+      }
     }
 
     const parsed = JSON.parse(jsonStr);
