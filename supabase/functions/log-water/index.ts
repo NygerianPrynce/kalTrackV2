@@ -63,7 +63,8 @@ serve(async (req) => {
       amount_oz = parseWaterOz(body.text);
     }
 
-    if (amount_oz === null || !Number.isFinite(amount_oz) || amount_oz <= 0) {
+    // Allow negative amounts as corrections (e.g. -8 to undo a glass)
+    if (amount_oz === null || !Number.isFinite(amount_oz) || amount_oz === 0) {
       return json({ error: "Could not determine a water amount" }, 400);
     }
     amount_oz = Math.round(amount_oz * 10) / 10;
@@ -81,7 +82,10 @@ serve(async (req) => {
       ok: true,
       id: data.id,
       amount_oz,
-      speech: `Logged ${amount_oz} ounces of water.`,
+      speech:
+        amount_oz < 0
+          ? `Removed ${Math.abs(amount_oz)} ounces of water.`
+          : `Logged ${amount_oz} ounces of water.`,
     });
   } catch (error) {
     return json({ error: "Internal server error", details: error instanceof Error ? error.message : "Unknown" }, 500);

@@ -151,6 +151,7 @@ export default function Dashboard() {
           />
         </div>
         <div className="water-actions">
+          <button className="water-minus" disabled={busy || waterToday <= 0} onClick={() => handleAddWater(-8)}>−8 oz</button>
           <button disabled={busy} onClick={() => handleAddWater(8)}>+8 oz</button>
           <button disabled={busy} onClick={() => handleAddWater(16)}>+16 oz</button>
           <button disabled={busy} onClick={() => handleAddWater(24)}>+24 oz</button>

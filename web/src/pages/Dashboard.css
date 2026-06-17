@@ -319,3 +319,8 @@
 .relog-button:disabled {
   opacity: 0.5;
 }
+
+.water-card .water-actions button.water-minus {
+  background: #fee2e2;
+  color: #b91c1c;
+}
