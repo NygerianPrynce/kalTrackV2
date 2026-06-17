@@ -257,3 +257,65 @@
   font-size: 12px;
   font-weight: 500;
 }
+
+/* --- v2: streak, water, re-log --- */
+.streak-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.streak-pill {
+  background: #fff7ed;
+  color: #c2410c;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.streak-meta {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.water-card .water-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.water-card .water-actions button {
+  flex: 1;
+  background: #e0f2fe;
+  color: #0369a1;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.water-card .water-actions button:disabled {
+  opacity: 0.5;
+}
+
+.relog-button {
+  margin-top: 12px;
+  width: 100%;
+  background: #eff6ff;
+  color: #2563eb;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.relog-button:disabled {
+  opacity: 0.5;
+}

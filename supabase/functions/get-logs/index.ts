@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const PROJECT_URL = Deno.env.get("PROJECT_URL");
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
+const PROJECT_URL = Deno.env.get("PROJECT_URL") ?? Deno.env.get("SUPABASE_URL");
+const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 interface DailyTotals {
   date: string;
@@ -306,12 +306,68 @@ serve(async (req) => {
     const daily_totals = calculateDailyTotals(logsArray, tz);
     const last_7_avg = calculateLast7Avg(logsArray, tz);
 
+    // Fetch water + settings in parallel
+    const [{ data: waterRows }, { data: settings }] = await Promise.all([
+      supabase
+        .from("water_logs")
+        .select("logged_at, amount_oz")
+        .gte("logged_at", dateRange.from.toISOString())
+        .lte("logged_at", dateRange.to.toISOString()),
+      supabase.from("user_settings").select("*").eq("id", 1).single(),
+    ]);
+
+    // Water by day + today
+    const todayStr = getDateString(new Date(), tz);
+    const waterByDate = new Map<string, number>();
+    let water_today = 0;
+    for (const w of waterRows ?? []) {
+      const d = getDateString(new Date(w.logged_at), tz);
+      const amt = Number(w.amount_oz) || 0;
+      waterByDate.set(d, (waterByDate.get(d) || 0) + amt);
+      if (d === todayStr) water_today += amt;
+    }
+    water_today = Math.round(water_today * 10) / 10;
+    const water_daily = Array.from(waterByDate.entries())
+      .map(([date, oz]) => ({ date, water_oz: Math.round(oz * 10) / 10 }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // Streak: consecutive days up to today that have any logged calories
+    const calorieDays = new Set(daily_totals.filter((d) => d.calories > 0).map((d) => d.date));
+    let streak = 0;
+    const cursor = new Date();
+    // allow today to be empty without breaking the streak (count from yesterday)
+    if (!calorieDays.has(getDateString(cursor, tz))) cursor.setDate(cursor.getDate() - 1);
+    while (calorieDays.has(getDateString(cursor, tz))) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    // Weekly hit-rate (last 7 days incl today) vs calorie + protein goals
+    const calGoal = settings?.calories_goal ?? 0;
+    const proteinGoal = Number(settings?.protein_goal_g ?? 0);
+    let hit_calories = 0;
+    let hit_protein = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const ds = getDateString(d, tz);
+      const day = daily_totals.find((x) => x.date === ds);
+      if (day && calGoal > 0 && day.calories >= calGoal) hit_calories++;
+      if (day && proteinGoal > 0 && day.protein_g >= proteinGoal) hit_protein++;
+    }
+
     return new Response(
       JSON.stringify({
         logs: logsArray,
         today_totals,
         daily_totals,
         last_7_avg,
+        water_today,
+        water_daily,
+        water_goal_oz: Number(settings?.water_goal_oz ?? 64),
+        settings: settings ?? null,
+        streak,
+        weekly: { hit_calories, hit_protein, days: 7 },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

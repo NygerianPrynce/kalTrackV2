@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { getLogs } from '../api'
+import { getLogs, logWater, logMeal } from '../api'
 import { GetLogsResponse, MealLog, NutritionGoals } from '../types'
-import { getGoals } from '../utils/goals'
+import { getGoals, refreshGoals } from '../utils/goals'
 import './Dashboard.css'
 
 export default function Dashboard() {
@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     // Load cached data first
@@ -24,9 +25,10 @@ export default function Dashboard() {
       }
     }
 
-    // Fetch fresh data
+    // Fetch fresh data + authoritative goals
     loadData()
-    
+    refreshGoals().then(setGoals).catch((e) => console.error('Failed to refresh goals', e))
+
     // Listen for goals updates (same tab and other tabs)
     const handleGoalsUpdate = () => {
       setGoals(getGoals())
@@ -38,6 +40,30 @@ export default function Dashboard() {
       window.removeEventListener('storage', handleGoalsUpdate)
     }
   }, [])
+
+  const handleAddWater = async (oz: number) => {
+    try {
+      setBusy(true)
+      await logWater(oz)
+      await loadData()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to log water')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRelog = async (text: string) => {
+    try {
+      setBusy(true)
+      await logMeal({ text })
+      await loadData()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to re-log meal')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const loadData = async () => {
     try {
@@ -88,10 +114,48 @@ export default function Dashboard() {
 
   const { today_totals, logs } = data
   const recentLogs = logs.slice(0, 10)
+  const streak = data.streak ?? 0
+  const weekly = data.weekly
+  const waterToday = data.water_today ?? 0
+  const waterGoal = data.water_goal_oz ?? goals.water_goal_oz ?? 64
+  const waterPct = waterGoal > 0 ? Math.min(100, Math.round((waterToday / waterGoal) * 100)) : 0
 
   return (
     <div className="dashboard">
       <h1 className="page-title">Today</h1>
+
+      {/* Streak / weekly hit-rate */}
+      {(streak > 0 || (weekly && weekly.hit_protein > 0)) && (
+        <div className="streak-banner">
+          {streak > 0 && (
+            <span className="streak-pill">🔥 {streak} day{streak === 1 ? '' : 's'} streak</span>
+          )}
+          {weekly && (
+            <span className="streak-meta">
+              {weekly.hit_protein}/{weekly.days} protein · {weekly.hit_calories}/{weekly.days} calories this week
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Water Card */}
+      <div className="card water-card">
+        <div className="macro-header">
+          <span className="macro-label">💧 Water</span>
+          <span className="macro-value">{Math.round(waterToday)} / {Math.round(waterGoal)} oz</span>
+        </div>
+        <div className="progress-bar-container">
+          <div
+            className="progress-bar"
+            style={{ width: `${waterPct}%`, backgroundColor: '#0ea5e9' }}
+          />
+        </div>
+        <div className="water-actions">
+          <button disabled={busy} onClick={() => handleAddWater(8)}>+8 oz</button>
+          <button disabled={busy} onClick={() => handleAddWater(16)}>+16 oz</button>
+          <button disabled={busy} onClick={() => handleAddWater(24)}>+24 oz</button>
+        </div>
+      </div>
 
       {/* Calories Card */}
       <div className="card calories-card">
@@ -154,6 +218,8 @@ export default function Dashboard() {
                 log={log}
                 expanded={expandedLogs.has(log.id)}
                 onToggle={() => toggleLog(log.id)}
+                onRelog={() => handleRelog(log.raw_text)}
+                busy={busy}
               />
             ))}
           </div>
@@ -209,10 +275,14 @@ function LogCard({
   log,
   expanded,
   onToggle,
+  onRelog,
+  busy,
 }: {
   log: MealLog
   expanded: boolean
   onToggle: () => void
+  onRelog: () => void
+  busy: boolean
 }) {
   const mealTime = new Date(log.meal_time)
   const timeStr = mealTime.toLocaleTimeString('en-US', {
@@ -250,6 +320,16 @@ function LogCard({
               <strong>Assumptions:</strong> {log.assumptions.join(', ')}
             </div>
           )}
+          <button
+            className="relog-button"
+            disabled={busy}
+            onClick={(e) => {
+              e.stopPropagation()
+              onRelog()
+            }}
+          >
+            ↻ Log again now
+          </button>
         </div>
       )}
     </div>

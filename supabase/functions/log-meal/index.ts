@@ -2,8 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const PROJECT_URL = Deno.env.get("PROJECT_URL");
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
+const PROJECT_URL = Deno.env.get("PROJECT_URL") ?? Deno.env.get("SUPABASE_URL");
+const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 interface MealItem {
   name: string;
@@ -38,6 +38,40 @@ interface OpenAIResponse {
 interface RequestBody {
   text: string;
   meal_type?: string;
+  tz?: string;
+}
+
+// Parse a free-text water amount -> ounces (null if it's not a water phrase)
+function parseWaterOz(text: string): number | null {
+  const t = text.toLowerCase();
+  if (!/water|hydrat/.test(t)) return null;
+  const m = t.match(/(\d+(?:\.\d+)?)\s*(fl\s*oz|oz|ounce|ounces|cups?|glass(?:es)?|bottles?|ml|l|liters?|litres?)?/);
+  if (!m) {
+    if (/glass/.test(t)) return 8;
+    if (/bottle/.test(t)) return 16.9;
+    if (/cup/.test(t)) return 8;
+    return 8; // "log water" with no amount -> assume one glass
+  }
+  const amount = parseFloat(m[1]);
+  if (!Number.isFinite(amount)) return 8;
+  const unit = (m[2] || "oz").replace(/\s+/g, "");
+  if (/^(floz|oz|ounce|ounces)$/.test(unit)) return amount;
+  if (/^cups?$/.test(unit)) return amount * 8;
+  if (/^glass(es)?$/.test(unit)) return amount * 8;
+  if (/^bottles?$/.test(unit)) return amount * 16.9;
+  if (/^ml$/.test(unit)) return amount * 0.033814;
+  if (/^(l|liters?|litres?)$/.test(unit)) return amount * 33.814;
+  return amount;
+}
+
+function inferMealType(tz: string): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", hour12: false }).format(new Date())
+  );
+  if (hour >= 4 && hour < 11) return "breakfast";
+  if (hour >= 11 && hour < 16) return "lunch";
+  if (hour >= 16 && hour < 22) return "dinner";
+  return "snack";
 }
 
 const SYSTEM_PROMPT = `You are a nutrition parser. Analyze the meal description and output ONLY valid JSON matching this exact schema. No markdown. No extra keys. No explanations.
@@ -245,6 +279,89 @@ serve(async (req) => {
     // Use current time (stored as UTC in database, will display in CST on frontend)
     // The database stores timestamptz in UTC, frontend handles timezone conversion
     const meal_time = new Date();
+    const tz = body.tz || "America/Chicago";
+    const text = body.text.trim();
+
+    if (!PROJECT_URL || !SERVICE_ROLE_KEY) {
+      throw new Error("Supabase credentials not configured");
+    }
+    const supabase = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
+
+    // --- Fast path 1: water ("log 16oz water") -> water_logs, no OpenAI ---
+    const waterOz = parseWaterOz(text);
+    if (waterOz !== null) {
+      const amount = Math.round(waterOz * 10) / 10;
+      const { error: wErr } = await supabase
+        .from("water_logs")
+        .insert({ logged_at: meal_time.toISOString(), amount_oz: amount });
+      if (wErr) {
+        return new Response(
+          JSON.stringify({ error: "Failed to log water", details: wErr.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(
+        JSON.stringify({ ok: true, kind: "water", amount_oz: amount, speech: `Logged ${amount} ounces of water.` }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // --- Fast path 2: a saved daily template by name/alias, no OpenAI ---
+    {
+      const needle = text.toLowerCase();
+      const { data: templates } = await supabase
+        .from("daily_templates")
+        .select("*")
+        .eq("is_active", true);
+      const match = (templates ?? []).find(
+        (t: any) =>
+          t.name.toLowerCase() === needle ||
+          (Array.isArray(t.aliases) && t.aliases.includes(needle)) ||
+          (Array.isArray(t.aliases) && t.aliases.some((a: string) => a && needle.includes(a)))
+      );
+      if (match) {
+        const totals: MealTotals = {
+          calories: match.calories,
+          protein_g: Number(match.protein_g),
+          carbs_g: Number(match.carbs_g),
+          fat_g: Number(match.fat_g),
+          fiber_g: Number(match.fiber_g),
+          ...(match.sugar_g != null ? { sugar_g: Number(match.sugar_g) } : {}),
+          ...(match.sodium_mg != null ? { sodium_mg: Number(match.sodium_mg) } : {}),
+        };
+        const { data: tData, error: tErr } = await supabase
+          .from("meal_logs")
+          .insert({
+            meal_time: meal_time.toISOString(),
+            raw_text: match.name,
+            meal_type: inferMealType(tz),
+            totals,
+            items: [{ name: match.name, qty: "1 serving", ...totals }],
+            confidence: 1.0,
+            assumptions: [],
+            template_id: match.id,
+          })
+          .select()
+          .single();
+        if (tErr) {
+          return new Response(
+            JSON.stringify({ error: "Failed to log template", details: tErr.message }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            kind: "template",
+            id: tData.id,
+            meal_time: tData.meal_time,
+            totals,
+            speech: `Logged ${match.name}, ${Math.round(totals.calories)} calories.`,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     // Call OpenAI
     let parsed: OpenAIResponse;
@@ -262,18 +379,12 @@ serve(async (req) => {
     }
 
     // Insert into database
-    if (!PROJECT_URL || !SERVICE_ROLE_KEY) {
-      throw new Error("Supabase credentials not configured");
-    }
-
-    const supabase = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
-
     const { data, error } = await supabase
       .from("meal_logs")
       .insert({
         meal_time: meal_time.toISOString(),
-        raw_text: body.text.trim(),
-        meal_type: body.meal_type || null,
+        raw_text: text,
+        meal_type: body.meal_type || inferMealType(tz),
         totals: parsed.totals,
         items: parsed.items,
         confidence: parsed.confidence,

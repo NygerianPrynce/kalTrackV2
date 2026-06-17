@@ -1,4 +1,4 @@
-import { GetLogsResponse } from './types'
+import { GetLogsResponse, UserSettings, DailyTemplate, NutritionGoals } from './types'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || ''
 
@@ -7,6 +7,29 @@ if (!SUPABASE_URL) {
 }
 
 const SUPABASE_FUNCTIONS_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1` : ''
+
+const TZ = () => Intl.DateTimeFormat().resolvedOptions().timeZone
+
+// Shared fetch helper with the same error handling used across the app
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!SUPABASE_URL) {
+    throw new Error('Supabase URL not configured. Please set VITE_SUPABASE_URL in your .env file.')
+  }
+  const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  })
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type')
+    if (contentType && !contentType.includes('application/json')) {
+      await response.text()
+      throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}.`)
+    }
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+    throw new Error(error.error || `HTTP ${response.status}`)
+  }
+  return response.json()
+}
 
 export async function getLogs(params?: {
   range?: string
@@ -45,6 +68,41 @@ export async function getLogs(params?: {
   }
 
   return response.json()
+}
+
+// ----- Settings (goals) stored in Supabase -----
+export async function getSettings(): Promise<UserSettings> {
+  return apiFetch<UserSettings>('settings', { method: 'GET' })
+}
+
+export async function updateSettings(
+  goals: NutritionGoals & { water_goal_oz?: number }
+): Promise<{ ok: boolean; settings: UserSettings }> {
+  return apiFetch('settings', { method: 'POST', body: JSON.stringify(goals) })
+}
+
+// ----- Daily templates -----
+export async function getTemplates(includeInactive = false): Promise<{ templates: DailyTemplate[] }> {
+  return apiFetch(`templates${includeInactive ? '?all=1' : ''}`, { method: 'GET' })
+}
+
+export async function saveTemplate(
+  t: Partial<DailyTemplate> & { action?: 'create' | 'update' }
+): Promise<{ ok: boolean; template: DailyTemplate }> {
+  return apiFetch('templates', { method: 'POST', body: JSON.stringify(t) })
+}
+
+export async function deleteTemplate(id: string): Promise<{ ok: boolean; id: string }> {
+  return apiFetch('templates', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) })
+}
+
+export async function logTemplate(id: string): Promise<{ ok: boolean; id: string; speech: string }> {
+  return apiFetch('log-template', { method: 'POST', body: JSON.stringify({ id, tz: TZ() }) })
+}
+
+// ----- Water -----
+export async function logWater(amount_oz: number): Promise<{ ok: boolean; amount_oz: number }> {
+  return apiFetch('log-water', { method: 'POST', body: JSON.stringify({ amount_oz }) })
 }
 
 export async function logMeal(data: {

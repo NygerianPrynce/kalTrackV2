@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react'
 import { getLogs } from '../api'
 import { NutritionGoals, GetLogsResponse } from '../types'
-import { getGoals, saveGoals } from '../utils/goals'
+import { getGoals, saveGoals, refreshGoals } from '../utils/goals'
 import './Settings.css'
 
 export default function Settings() {
   const [goals, setGoals] = useState<NutritionGoals>(getGoals())
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [data, setData] = useState<GetLogsResponse | null>(null)
 
   useEffect(() => {
     loadData()
+    refreshGoals().then(setGoals).catch((e) => console.error('Failed to load goals', e))
   }, [])
 
   const loadData = async () => {
@@ -28,17 +30,16 @@ export default function Settings() {
     setSaved(false)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
-      saveGoals(goals)
+      setSaving(true)
+      await saveGoals(goals)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-      // Trigger custom event for same-tab updates
-      window.dispatchEvent(new CustomEvent('goalsUpdated'))
-      // Trigger storage event for other tabs
-      window.dispatchEvent(new Event('storage'))
     } catch (err) {
       alert('Failed to save goals')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -77,7 +78,7 @@ export default function Settings() {
       <div className="card">
         <h2 className="section-title">Nutrition Goals</h2>
         <p className="section-description">
-          Set your daily nutrition targets. These are stored locally on your device.
+          Set your daily nutrition targets. These sync across all your devices.
         </p>
 
         <div className="goals-form">
@@ -107,6 +108,11 @@ export default function Settings() {
             onChange={(v) => handleChange('fiber_goal_g', v)}
           />
           <GoalInput
+            label="Water (oz)"
+            value={goals.water_goal_oz || 0}
+            onChange={(v) => handleChange('water_goal_oz', v)}
+          />
+          <GoalInput
             label="Sugar (g)"
             value={goals.sugar_goal_g || 0}
             onChange={(v) => handleChange('sugar_goal_g', v)}
@@ -120,8 +126,8 @@ export default function Settings() {
           />
         </div>
 
-        <button className="save-button" onClick={handleSave}>
-          {saved ? '✓ Saved' : 'Save Goals'}
+        <button className="save-button" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Goals'}
         </button>
       </div>
 
@@ -138,8 +144,8 @@ export default function Settings() {
       <div className="card">
         <h2 className="section-title">About</h2>
         <p className="section-description">
-          KalTrack is a personal meal logging app. Your data is stored in Supabase
-          and goals are stored locally on your device.
+          KalTrack is a personal meal logging app. Your meals, goals, dailies,
+          and water are all stored in Supabase and sync across your devices.
         </p>
       </div>
     </div>

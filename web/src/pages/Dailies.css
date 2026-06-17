@@ -1,0 +1,178 @@
+.dailies {
+  padding: 16px;
+}
+
+.dailies .page-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.dailies .section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.dailies .section-description {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+
+.dailies .card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+}
+
+.dailies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.daily-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.daily-check {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #3b82f6;
+  background: #fff;
+  color: #3b82f6;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.daily-check.checked {
+  background: #10b981;
+  border-color: #10b981;
+  color: #fff;
+}
+
+.daily-check:disabled {
+  opacity: 0.5;
+}
+
+.daily-info {
+  flex: 1;
+  cursor: pointer;
+}
+
+.daily-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.daily-macros {
+  color: #6b7280;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.goal-input-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.goal-label {
+  font-size: 13px;
+  color: #374151;
+  margin: 8px 0 4px;
+  display: block;
+}
+
+.goal-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.save-button {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+}
+
+.editor-actions .save-button {
+  width: auto;
+}
+
+.editor-actions .save-button:disabled {
+  opacity: 0.6;
+}
+
+.cancel-button {
+  background: #e5e7eb;
+  color: #374151;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.delete-button {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.empty-state {
+  color: #9ca3af;
+  text-align: center;
+  padding: 24px;
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
