@@ -1,4 +1,7 @@
-import { GetLogsResponse, UserSettings, DailyTemplate, NutritionGoals, MealItem, MealTotals } from './types'
+import {
+  GetLogsResponse, UserSettings, DailyTemplate, NutritionGoals, MealItem, MealTotals,
+  GetWorkoutsResponse, WorkoutExercise, WorkoutTotals,
+} from './types'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || ''
 
@@ -130,6 +133,38 @@ export async function saveMeal(payload: {
   assumptions?: string[]
 }): Promise<{ ok: boolean; id: string; totals: MealTotals }> {
   return apiFetch('save-meal', { method: 'POST', body: JSON.stringify({ ...payload, tz: TZ() }) })
+}
+
+// ----- Workouts -----
+export interface WorkoutPreview {
+  ok: boolean
+  preview: true
+  summary: string
+  items: WorkoutExercise[]
+  totals: WorkoutTotals
+  confidence: number
+  assumptions: string[]
+}
+
+export async function getWorkouts(range = '30d'): Promise<GetWorkoutsResponse> {
+  return apiFetch(`get-workouts?range=${range}&tz=${encodeURIComponent(TZ())}`, { method: 'GET' })
+}
+
+export async function previewWorkout(text: string): Promise<WorkoutPreview> {
+  return apiFetch('log-workout', { method: 'POST', body: JSON.stringify({ text, preview: true, tz: TZ() }) })
+}
+
+export async function saveWorkout(payload: {
+  raw_text: string
+  items: WorkoutExercise[]
+  confidence?: number
+  assumptions?: string[]
+}): Promise<{ ok: boolean; id: string; totals: WorkoutTotals }> {
+  return apiFetch('save-workout', { method: 'POST', body: JSON.stringify({ ...payload, tz: TZ() }) })
+}
+
+export async function deleteWorkout(id: string): Promise<{ ok: boolean; id: string }> {
+  return apiFetch('delete-workout', { method: 'POST', body: JSON.stringify({ id }) })
 }
 
 export async function logMeal(data: {

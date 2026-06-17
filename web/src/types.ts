@@ -108,6 +108,50 @@ export interface DailyTemplate {
   sort_order: number
 }
 
+// ----- Workouts -----
+export type Muscle =
+  | 'chest' | 'shoulders' | 'back' | 'lats' | 'traps' | 'biceps' | 'triceps'
+  | 'forearms' | 'abs' | 'obliques' | 'quads' | 'hamstrings' | 'glutes'
+  | 'calves' | 'lower_back' | 'cardio'
+
+export interface WorkoutExercise {
+  name: string
+  muscle_groups: Muscle[]
+  sets?: number
+  reps?: number
+  weight?: number
+  weight_unit?: string
+  duration_min?: number
+  calories?: number
+}
+
+export interface WorkoutTotals {
+  total_sets: number
+  total_reps: number
+  total_volume: number
+  calories: number
+  muscles: Muscle[]
+}
+
+export interface WorkoutLog {
+  id: string
+  created_at: string
+  workout_time: string
+  raw_text: string
+  items: WorkoutExercise[]
+  totals: WorkoutTotals
+  confidence: number
+  assumptions: string[]
+}
+
+export interface GetWorkoutsResponse {
+  workouts: WorkoutLog[]
+  today_muscles: Muscle[]
+  week_muscles: Muscle[]
+  streak: number
+  count: number
+}
+
 export const DEFAULT_GOALS: NutritionGoals = {
   calories_goal: 2500,
   protein_goal_g: 180,

@@ -11,6 +11,7 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = [
     { path: '/', label: 'Dashboard', icon: '📊' },
     { path: '/dailies', label: 'Dailies', icon: '✅' },
+    { path: '/workouts', label: 'Workouts', icon: '💪' },
     { path: '/trends', label: 'Trends', icon: '📈' },
     { path: '/history', label: 'History', icon: '📝' },
     { path: '/settings', label: 'Settings', icon: '⚙️' },
