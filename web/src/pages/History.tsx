@@ -17,6 +17,7 @@ export default function History() {
   const [reviewMeta, setReviewMeta] = useState<{ confidence: number; assumptions: string[] } | null>(null)
   const [editingLog, setEditingLog] = useState<MealLog | null>(null)
   const [editValues, setEditValues] = useState({
+    calories: 0,
     protein_g: 0,
     carbs_g: 0,
     fat_g: 0,
@@ -129,6 +130,7 @@ export default function History() {
     e.stopPropagation()
     setEditingLog(log)
     setEditValues({
+      calories: log.totals.calories,
       protein_g: log.totals.protein_g,
       carbs_g: log.totals.carbs_g,
       fat_g: log.totals.fat_g,
@@ -349,8 +351,8 @@ function EditModal({
   onCancel,
 }: {
   log: MealLog
-  values: { protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }
-  onValuesChange: (values: { protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }) => void
+  values: { calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }
+  onValuesChange: (values: { calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }) => void
   onSave: () => void
   onCancel: () => void
 }) {
@@ -359,8 +361,17 @@ function EditModal({
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h3 className="modal-title">Edit Macros</h3>
         <p className="modal-subtitle">{log.raw_text}</p>
-        
+
         <div className="edit-form">
+          <div className="edit-field">
+            <label>Calories (kcal)</label>
+            <input
+              type="number"
+              value={values.calories}
+              onChange={(e) => onValuesChange({ ...values, calories: parseFloat(e.target.value) || 0 })}
+              step="1"
+            />
+          </div>
           <div className="edit-field">
             <label>Protein (g)</label>
             <input
