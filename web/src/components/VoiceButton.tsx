@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import './VoiceButton.css'
 
 // Tap-to-speak using the Web Speech API (webkitSpeechRecognition on iOS Safari).
-// Falls back to hidden if the browser doesn't support it.
+// Press once to start, press again to stop. Stays listening through pauses by
+// running in continuous mode and auto-restarting if the engine ends early.
 export default function VoiceButton({
   onTranscript,
   onInterim,
@@ -13,6 +14,7 @@ export default function VoiceButton({
   const [listening, setListening] = useState(false)
   const [supported, setSupported] = useState(true)
   const recognitionRef = useRef<any>(null)
+  const wantListeningRef = useRef(false) // desired state; survives onend closures
 
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -23,7 +25,7 @@ export default function VoiceButton({
     const recognition = new SR()
     recognition.lang = 'en-US'
     recognition.interimResults = true
-    recognition.continuous = false
+    recognition.continuous = true // keep listening through pauses
 
     recognition.onresult = (event: any) => {
       let finalText = ''
@@ -33,14 +35,37 @@ export default function VoiceButton({
         if (event.results[i].isFinal) finalText += transcript
         else interimText += transcript
       }
-      if (interimText && onInterim) onInterim(interimText)
-      if (finalText) onTranscript(finalText.trim())
+      if (onInterim) onInterim(interimText)
+      if (finalText) {
+        onTranscript(finalText.trim())
+        if (onInterim) onInterim('')
+      }
     }
-    recognition.onend = () => setListening(false)
-    recognition.onerror = () => setListening(false)
+
+    // iOS/Safari often ends the session on a pause even in continuous mode.
+    // If the user hasn't tapped stop, restart so it keeps going.
+    recognition.onend = () => {
+      if (wantListeningRef.current) {
+        try {
+          recognition.start()
+          return
+        } catch {
+          /* fall through to stop */
+        }
+      }
+      setListening(false)
+    }
+    recognition.onerror = (e: any) => {
+      // "no-speech" / "aborted" are recoverable; let onend restart.
+      if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+        wantListeningRef.current = false
+        setListening(false)
+      }
+    }
 
     recognitionRef.current = recognition
     return () => {
+      wantListeningRef.current = false
       try { recognition.stop() } catch { /* noop */ }
     }
   }, [onTranscript, onInterim])
@@ -48,15 +73,18 @@ export default function VoiceButton({
   const toggle = () => {
     const recognition = recognitionRef.current
     if (!recognition) return
-    if (listening) {
-      recognition.stop()
+    if (wantListeningRef.current) {
+      wantListeningRef.current = false
+      try { recognition.stop() } catch { /* noop */ }
       setListening(false)
     } else {
+      wantListeningRef.current = true
       try {
         recognition.start()
         setListening(true)
       } catch {
-        // start() throws if already started; ignore
+        // already started
+        setListening(true)
       }
     }
   }
