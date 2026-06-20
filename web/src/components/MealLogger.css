@@ -1,0 +1,159 @@
+.meal-logger-open {
+  width: 100%;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.meal-logger {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+}
+
+.meal-logger-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.meal-logger .section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.meal-logger-close {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ml-error {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.ml-input {
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 15px;
+  box-sizing: border-box;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.ml-submit {
+  width: 100%;
+  margin-top: 10px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ml-submit:disabled { opacity: 0.5; }
+
+.ml-secondary {
+  background: #e5e7eb;
+  color: #374151;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ml-hint { font-size: 13px; color: #6b7280; margin: 4px 0 12px; }
+.ml-conf { color: #b45309; }
+
+.ml-item {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.ml-item-head { display: flex; align-items: center; gap: 8px; }
+
+.ml-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.ml-remove {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.ml-qty {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.ml-macros {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ml-field { display: flex; flex-direction: column; }
+
+.ml-field label { font-size: 11px; color: #6b7280; text-align: center; margin-bottom: 2px; }
+
+.ml-field input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 4px;
+  font-size: 13px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.ml-total { font-size: 13px; font-weight: 600; color: #374151; margin: 4px 0 12px; }
+
+.ml-actions { display: flex; gap: 10px; }
+.ml-actions .ml-submit { flex: 1; margin-top: 0; }

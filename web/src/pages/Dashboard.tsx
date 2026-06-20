@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getLogs, logWater, logMeal } from '../api'
 import { GetLogsResponse, MealLog, NutritionGoals } from '../types'
 import { getGoals, refreshGoals } from '../utils/goals'
+import MealLogger from '../components/MealLogger'
 import './Dashboard.css'
 
 export default function Dashboard() {
@@ -123,6 +124,9 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       <h1 className="page-title">Today</h1>
+
+      {/* Quick add a meal right from the dashboard */}
+      <MealLogger onSaved={loadData} />
 
       {/* Streak / weekly hit-rate */}
       {(streak > 0 || (weekly && weekly.hit_protein > 0)) && (
