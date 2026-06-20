@@ -16,6 +16,13 @@ export default function VoiceButton({
   const recognitionRef = useRef<any>(null)
   const wantListeningRef = useRef(false) // desired state; survives onend closures
 
+  // Keep the latest callbacks in refs so the recognizer is created ONCE and
+  // never torn down/rebuilt when the parent re-renders with new closures.
+  const onTranscriptRef = useRef(onTranscript)
+  const onInterimRef = useRef(onInterim)
+  useEffect(() => { onTranscriptRef.current = onTranscript }, [onTranscript])
+  useEffect(() => { onInterimRef.current = onInterim }, [onInterim])
+
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SR) {
@@ -35,10 +42,10 @@ export default function VoiceButton({
         if (event.results[i].isFinal) finalText += transcript
         else interimText += transcript
       }
-      if (onInterim) onInterim(interimText)
+      onInterimRef.current?.(interimText)
       if (finalText) {
-        onTranscript(finalText.trim())
-        if (onInterim) onInterim('')
+        onTranscriptRef.current(finalText.trim())
+        onInterimRef.current?.('')
       }
     }
 
@@ -56,11 +63,11 @@ export default function VoiceButton({
       setListening(false)
     }
     recognition.onerror = (e: any) => {
-      // "no-speech" / "aborted" are recoverable; let onend restart.
       if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
         wantListeningRef.current = false
         setListening(false)
       }
+      // other errors (no-speech, aborted, network) are recoverable via onend
     }
 
     recognitionRef.current = recognition
@@ -68,7 +75,8 @@ export default function VoiceButton({
       wantListeningRef.current = false
       try { recognition.stop() } catch { /* noop */ }
     }
-  }, [onTranscript, onInterim])
+    // Empty deps: create the recognizer exactly once.
+  }, [])
 
   const toggle = () => {
     const recognition = recognitionRef.current
@@ -83,7 +91,6 @@ export default function VoiceButton({
         recognition.start()
         setListening(true)
       } catch {
-        // already started
         setListening(true)
       }
     }
