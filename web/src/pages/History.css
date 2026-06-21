@@ -508,3 +508,30 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Water extracted from the meal text box */
+.ml-water {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.ml-water strong { font-weight: 700; }
+
+.ml-water-remove {
+  margin-left: auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  background: #bae6fd;
+  color: #0369a1;
+  font-size: 16px;
+  cursor: pointer;
+}

@@ -65,6 +65,45 @@ function parseWaterOz(text: string): number | null {
   return amount;
 }
 
+function unitToOz(amount: number, unit: string): number {
+  const u = (unit || "oz").replace(/\s+/g, "").toLowerCase();
+  if (/^(floz|oz|ounce|ounces)$/.test(u)) return amount;
+  if (/^cups?$/.test(u)) return amount * 8;
+  if (/^glass(es)?$/.test(u)) return amount * 8;
+  if (/^bottles?$/.test(u)) return amount * 16.9;
+  if (/^ml$/.test(u)) return amount * 0.033814;
+  if (/^(l|liters?|litres?)$/.test(u)) return amount * 33.814;
+  return amount;
+}
+
+// Find water mentions inside a meal description, sum their ounces, and return
+// the text with those phrases removed so the rest can be parsed as food.
+export function extractWater(text: string): { oz: number; cleaned: string } {
+  let oz = 0;
+  let cleaned = text;
+  // "<amount> <unit> (of) water" e.g. "16 oz water", "2 cups of water"
+  const withAmount = /(\d+(?:\.\d+)?)\s*(fl\s*oz|oz|ounces?|cups?|glass(?:es)?|bottles?|ml|l|liters?|litres?)?\s*(?:of\s+)?water/gi;
+  cleaned = cleaned.replace(withAmount, (_m, amt, unit) => {
+    const a = parseFloat(amt);
+    if (Number.isFinite(a)) oz += unitToOz(a, unit || "oz");
+    return " ";
+  });
+  // bare "a glass/bottle/cup of water" with no number
+  const noAmount = /\b(a|an|one)?\s*(glass|bottle|cup)\s*(?:of\s+)?water/gi;
+  cleaned = cleaned.replace(noAmount, (_m, _art, container) => {
+    oz += container.toLowerCase() === "bottle" ? 16.9 : 8;
+    return " ";
+  });
+  // standalone "water" left over (e.g. "...and water") -> assume a glass
+  if (oz === 0 && /\bwater\b/i.test(cleaned)) {
+    oz += 8;
+    cleaned = cleaned.replace(/\bwater\b/gi, " ");
+  }
+  // tidy leftover connectors/punctuation
+  cleaned = cleaned.replace(/\s+(and|with|plus|,|&)\s*$/i, " ").replace(/^\s*(and|with|plus|,|&)\s+/i, " ").replace(/\s{2,}/g, " ").trim();
+  return { oz: Math.round(oz * 10) / 10, cleaned };
+}
+
 function inferMealType(tz: string): string {
   const hour = Number(
     new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", hour12: false }).format(new Date())
@@ -388,7 +427,48 @@ serve(async (req) => {
       }
     }
 
-    // Call OpenAI
+    // Preview mode: pull out any water mention, then parse the remaining
+    // text as food. Return water separately so the client can log it to the
+    // water section instead of counting it as a food entry.
+    if (preview) {
+      const { oz: waterOz, cleaned } = extractWater(text);
+      let items: MealItem[] = [];
+      let mealSummary = "";
+      let confidence = 1;
+      let assumptions: string[] = [];
+
+      if (cleaned.trim().length > 0) {
+        let parsed: OpenAIResponse;
+        try {
+          parsed = await callOpenAI(cleaned.trim());
+        } catch (error) {
+          console.error("OpenAI error:", error);
+          return new Response(
+            JSON.stringify({ error: "Failed to parse meal with AI", details: error instanceof Error ? error.message : "Unknown error" }),
+            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        items = parsed.items;
+        mealSummary = parsed.meal_summary;
+        confidence = parsed.confidence;
+        assumptions = parsed.assumptions;
+      }
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          preview: true,
+          meal_summary: mealSummary,
+          items,
+          confidence,
+          assumptions,
+          water_oz: waterOz, // > 0 if the text mentioned water
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Call OpenAI (non-preview, direct log)
     let parsed: OpenAIResponse;
     try {
       parsed = await callOpenAI(body.text.trim());
@@ -400,23 +480,6 @@ serve(async (req) => {
           details: error instanceof Error ? error.message : "Unknown error",
         }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Preview mode: return the parsed result without saving so the
-    // user can review/edit each item before confirming.
-    if (preview) {
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          preview: true,
-          meal_summary: parsed.meal_summary,
-          items: parsed.items,
-          totals: parsed.totals,
-          confidence: parsed.confidence,
-          assumptions: parsed.assumptions,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

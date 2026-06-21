@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getLogs, deleteMeal, updateMeal, previewMeal, saveMeal } from '../api'
+import { getLogs, deleteMeal, updateMeal, previewMeal, saveMeal, logWater } from '../api'
 import { GetLogsResponse, MealLog, MealItem } from '../types'
 import './History.css'
 
@@ -14,6 +14,7 @@ export default function History() {
   const [submitting, setSubmitting] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [reviewItems, setReviewItems] = useState<MealItem[] | null>(null)
+  const [reviewWater, setReviewWater] = useState(0)
   const [reviewMeta, setReviewMeta] = useState<{ confidence: number; assumptions: string[] } | null>(null)
   const [editingLog, setEditingLog] = useState<MealLog | null>(null)
   const [editTime, setEditTime] = useState('') // datetime-local string
@@ -50,6 +51,7 @@ export default function History() {
       setError(null)
       const result = await previewMeal(quickAddText.trim())
       setReviewItems(result.items)
+      setReviewWater(result.water_oz || 0)
       setReviewMeta({ confidence: result.confidence, assumptions: result.assumptions })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to parse meal')
@@ -73,18 +75,22 @@ export default function History() {
     setReviewItems((prev) => (prev ? prev.filter((_, i) => i !== idx) : prev))
   }
 
-  // Step 2: save the confirmed/edited items
+  // Step 2: save the confirmed/edited items (and any water)
   const handleConfirmSave = async () => {
-    if (!reviewItems || reviewItems.length === 0) return
+    if (!reviewItems) return
+    if (reviewItems.length === 0 && reviewWater <= 0) return
     try {
       setSubmitting(true)
       setError(null)
-      await saveMeal({
-        raw_text: quickAddText.trim(),
-        items: reviewItems,
-        confidence: reviewMeta?.confidence,
-        assumptions: reviewMeta?.assumptions,
-      })
+      if (reviewWater > 0) await logWater(reviewWater)
+      if (reviewItems.length > 0) {
+        await saveMeal({
+          raw_text: quickAddText.trim(),
+          items: reviewItems,
+          confidence: reviewMeta?.confidence,
+          assumptions: reviewMeta?.assumptions,
+        })
+      }
       resetQuickAdd()
       await loadData()
     } catch (err) {
@@ -97,6 +103,7 @@ export default function History() {
   const resetQuickAdd = () => {
     setQuickAddText('')
     setReviewItems(null)
+    setReviewWater(0)
     setReviewMeta(null)
     setShowQuickAdd(false)
   }
@@ -220,8 +227,18 @@ export default function History() {
                 )}
               </p>
 
-              {reviewItems.length === 0 && (
+              {reviewWater > 0 && (
+                <div className="ml-water">
+                  💧 Also logging <strong>{reviewWater} oz water</strong>
+                  <button className="ml-water-remove" onClick={() => setReviewWater(0)} aria-label="Don't log water">×</button>
+                </div>
+              )}
+
+              {reviewItems.length === 0 && reviewWater <= 0 && (
                 <div className="empty-state">All items removed. Re-parse or cancel.</div>
+              )}
+              {reviewItems.length === 0 && reviewWater > 0 && (
+                <p className="review-hint">No food detected — just water.</p>
               )}
 
               {reviewItems.map((item, idx) => (
@@ -250,21 +267,23 @@ export default function History() {
                 </div>
               ))}
 
-              <div className="review-total">
-                Total: {Math.round(reviewItems.reduce((s, i) => s + (i.calories || 0), 0))} kcal ·
-                P {reviewItems.reduce((s, i) => s + (i.protein_g || 0), 0).toFixed(1)} ·
-                C {reviewItems.reduce((s, i) => s + (i.carbs_g || 0), 0).toFixed(1)} ·
-                F {reviewItems.reduce((s, i) => s + (i.fat_g || 0), 0).toFixed(1)}
-              </div>
+              {reviewItems.length > 0 && (
+                <div className="review-total">
+                  Total: {Math.round(reviewItems.reduce((s, i) => s + (i.calories || 0), 0))} kcal ·
+                  P {reviewItems.reduce((s, i) => s + (i.protein_g || 0), 0).toFixed(1)} ·
+                  C {reviewItems.reduce((s, i) => s + (i.carbs_g || 0), 0).toFixed(1)} ·
+                  F {reviewItems.reduce((s, i) => s + (i.fat_g || 0), 0).toFixed(1)}
+                </div>
+              )}
 
               <div className="review-actions">
-                <button className="secondary-button" onClick={() => { setReviewItems(null); setReviewMeta(null) }}>
+                <button className="secondary-button" onClick={() => { setReviewItems(null); setReviewWater(0); setReviewMeta(null) }}>
                   Re-parse
                 </button>
                 <button
                   className="submit-button"
                   onClick={handleConfirmSave}
-                  disabled={submitting || reviewItems.length === 0}
+                  disabled={submitting || (reviewItems.length === 0 && reviewWater <= 0)}
                 >
                   {submitting ? 'Saving…' : 'Confirm & Save'}
                 </button>

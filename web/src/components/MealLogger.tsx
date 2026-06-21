@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { previewMeal, saveMeal } from '../api'
+import { previewMeal, saveMeal, logWater } from '../api'
 import { MealItem } from '../types'
 import VoiceButton from './VoiceButton'
 import './MealLogger.css'
@@ -14,10 +14,11 @@ export default function MealLogger({ onSaved }: { onSaved: () => void }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<MealItem[] | null>(null)
+  const [water, setWater] = useState(0)
   const [meta, setMeta] = useState<{ confidence: number; assumptions: string[] } | null>(null)
 
   const reset = () => {
-    setText(''); setInterim(''); setItems(null); setMeta(null); setError(null); setOpen(false)
+    setText(''); setInterim(''); setItems(null); setWater(0); setMeta(null); setError(null); setOpen(false)
   }
 
   const handleParse = async () => {
@@ -26,6 +27,7 @@ export default function MealLogger({ onSaved }: { onSaved: () => void }) {
       setParsing(true); setError(null)
       const result = await previewMeal(text.trim())
       setItems(result.items)
+      setWater(result.water_oz || 0)
       setMeta({ confidence: result.confidence, assumptions: result.assumptions })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to parse meal')
@@ -47,10 +49,15 @@ export default function MealLogger({ onSaved }: { onSaved: () => void }) {
   const removeItem = (idx: number) => setItems((prev) => (prev ? prev.filter((_, i) => i !== idx) : prev))
 
   const handleSave = async () => {
-    if (!items || items.length === 0) return
+    if (!items) return
+    if (items.length === 0 && water <= 0) return
     try {
       setSaving(true); setError(null)
-      await saveMeal({ raw_text: text.trim(), items, confidence: meta?.confidence, assumptions: meta?.assumptions })
+      // Log water (if any) and food (if any) together
+      if (water > 0) await logWater(water)
+      if (items.length > 0) {
+        await saveMeal({ raw_text: text.trim(), items, confidence: meta?.confidence, assumptions: meta?.assumptions })
+      }
       reset()
       onSaved()
     } catch (err) {
@@ -98,6 +105,15 @@ export default function MealLogger({ onSaved }: { onSaved: () => void }) {
             Review &amp; edit, then confirm.
             {meta && meta.confidence < 0.7 && <span className="ml-conf"> (AI {Math.round(meta.confidence * 100)}%)</span>}
           </p>
+          {water > 0 && (
+            <div className="ml-water">
+              💧 Also logging <strong>{water} oz water</strong>
+              <button className="ml-water-remove" onClick={() => setWater(0)} aria-label="Don't log water">×</button>
+            </div>
+          )}
+          {items.length === 0 && water > 0 && (
+            <p className="ml-hint">No food detected — just water.</p>
+          )}
           {items.map((item, idx) => (
             <div key={idx} className="ml-item">
               <div className="ml-item-head">
@@ -114,15 +130,17 @@ export default function MealLogger({ onSaved }: { onSaved: () => void }) {
               </div>
             </div>
           ))}
-          <div className="ml-total">
-            Total: {Math.round(items.reduce((s, i) => s + (i.calories || 0), 0))} kcal ·
-            P {items.reduce((s, i) => s + (i.protein_g || 0), 0).toFixed(1)} ·
-            C {items.reduce((s, i) => s + (i.carbs_g || 0), 0).toFixed(1)} ·
-            F {items.reduce((s, i) => s + (i.fat_g || 0), 0).toFixed(1)}
-          </div>
+          {items.length > 0 && (
+            <div className="ml-total">
+              Total: {Math.round(items.reduce((s, i) => s + (i.calories || 0), 0))} kcal ·
+              P {items.reduce((s, i) => s + (i.protein_g || 0), 0).toFixed(1)} ·
+              C {items.reduce((s, i) => s + (i.carbs_g || 0), 0).toFixed(1)} ·
+              F {items.reduce((s, i) => s + (i.fat_g || 0), 0).toFixed(1)}
+            </div>
+          )}
           <div className="ml-actions">
-            <button className="ml-secondary" onClick={() => { setItems(null); setMeta(null) }}>Re-parse</button>
-            <button className="ml-submit" onClick={handleSave} disabled={saving || items.length === 0}>
+            <button className="ml-secondary" onClick={() => { setItems(null); setWater(0); setMeta(null) }}>Re-parse</button>
+            <button className="ml-submit" onClick={handleSave} disabled={saving || (items.length === 0 && water <= 0)}>
               {saving ? 'Saving…' : 'Confirm & Save'}
             </button>
           </div>

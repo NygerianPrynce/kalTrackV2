@@ -114,9 +114,10 @@ export interface MealPreview {
   preview: true
   meal_summary: string
   items: MealItem[]
-  totals: MealTotals
+  totals?: MealTotals
   confidence: number
   assumptions: string[]
+  water_oz?: number // > 0 if the text mentioned water
 }
 
 export async function previewMeal(text: string): Promise<MealPreview> {
