@@ -246,7 +246,8 @@ export async function updateMeal(
     fiber_g?: number
     sugar_g?: number
     sodium_mg?: number
-  }
+  },
+  meal_time?: string
 ): Promise<{ ok: boolean; data: any }> {
   if (!SUPABASE_URL) {
     throw new Error('Supabase URL not configured. Please set VITE_SUPABASE_URL in your .env file.')
@@ -259,7 +260,7 @@ export async function updateMeal(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ id, totals }),
+    body: JSON.stringify({ id, totals, ...(meal_time ? { meal_time } : {}) }),
   })
 
   if (!response.ok) {

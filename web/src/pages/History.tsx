@@ -16,6 +16,7 @@ export default function History() {
   const [reviewItems, setReviewItems] = useState<MealItem[] | null>(null)
   const [reviewMeta, setReviewMeta] = useState<{ confidence: number; assumptions: string[] } | null>(null)
   const [editingLog, setEditingLog] = useState<MealLog | null>(null)
+  const [editTime, setEditTime] = useState('') // datetime-local string
   const [editValues, setEditValues] = useState({
     calories: 0,
     protein_g: 0,
@@ -129,6 +130,7 @@ export default function History() {
   const handleEdit = (log: MealLog, e: React.MouseEvent) => {
     e.stopPropagation()
     setEditingLog(log)
+    setEditTime(toLocalInput(new Date(log.meal_time)))
     setEditValues({
       calories: log.totals.calories,
       protein_g: log.totals.protein_g,
@@ -143,7 +145,8 @@ export default function History() {
 
     try {
       setError(null)
-      await updateMeal(editingLog.id, editValues)
+      const iso = editTime ? new Date(editTime).toISOString() : undefined
+      await updateMeal(editingLog.id, editValues, iso)
       setEditingLog(null)
       await loadData()
     } catch (err) {
@@ -312,12 +315,21 @@ export default function History() {
           log={editingLog}
           values={editValues}
           onValuesChange={setEditValues}
+          time={editTime}
+          onTimeChange={setEditTime}
           onSave={handleSaveEdit}
           onCancel={handleCancelEdit}
         />
       )}
     </div>
   )
+}
+
+// Format a Date into the value a <input type="datetime-local"> expects,
+// in the user's local timezone.
+function toLocalInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function ReviewField({
@@ -347,22 +359,34 @@ function EditModal({
   log,
   values,
   onValuesChange,
+  time,
+  onTimeChange,
   onSave,
   onCancel,
 }: {
   log: MealLog
   values: { calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }
   onValuesChange: (values: { calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }) => void
+  time: string
+  onTimeChange: (value: string) => void
   onSave: () => void
   onCancel: () => void
 }) {
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h3 className="modal-title">Edit Macros</h3>
+        <h3 className="modal-title">Edit Meal</h3>
         <p className="modal-subtitle">{log.raw_text}</p>
 
         <div className="edit-form">
+          <div className="edit-field">
+            <label>Date &amp; time</label>
+            <input
+              type="datetime-local"
+              value={time}
+              onChange={(e) => onTimeChange(e.target.value)}
+            />
+          </div>
           <div className="edit-field">
             <label>Calories (kcal)</label>
             <input

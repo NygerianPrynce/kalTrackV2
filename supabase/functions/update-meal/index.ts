@@ -6,7 +6,8 @@ const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPAB
 
 interface UpdateBody {
   id: string;
-  totals: {
+  meal_time?: string; // ISO timestamp; lets you move a meal to another day/time
+  totals?: {
     calories?: number;
     protein_g?: number;
     carbs_g?: number;
@@ -53,11 +54,25 @@ serve(async (req) => {
       );
     }
 
-    if (!body.totals || typeof body.totals !== "object") {
+    const hasTotals = body.totals && typeof body.totals === "object";
+    if (!hasTotals && !body.meal_time) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid 'totals' field" }),
+        JSON.stringify({ error: "Provide 'totals' and/or 'meal_time' to update" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Validate meal_time if provided
+    let mealTimeIso: string | undefined;
+    if (body.meal_time) {
+      const d = new Date(body.meal_time);
+      if (isNaN(d.getTime())) {
+        return new Response(
+          JSON.stringify({ error: "Invalid 'meal_time'" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      mealTimeIso = d.toISOString();
     }
 
     if (!PROJECT_URL || !SERVICE_ROLE_KEY) {
@@ -80,35 +95,28 @@ serve(async (req) => {
       );
     }
 
-    // Merge existing totals with new values, rounding appropriately
-    const updatedTotals = {
-      ...existing.totals,
-      ...(body.totals.calories !== undefined && {
-        calories: roundCalories(body.totals.calories),
-      }),
-      ...(body.totals.protein_g !== undefined && {
-        protein_g: roundMacro(body.totals.protein_g),
-      }),
-      ...(body.totals.carbs_g !== undefined && {
-        carbs_g: roundMacro(body.totals.carbs_g),
-      }),
-      ...(body.totals.fat_g !== undefined && {
-        fat_g: roundMacro(body.totals.fat_g),
-      }),
-      ...(body.totals.fiber_g !== undefined && {
-        fiber_g: roundMacro(body.totals.fiber_g),
-      }),
-      ...(body.totals.sugar_g !== undefined && {
-        sugar_g: roundMacro(body.totals.sugar_g),
-      }),
-      ...(body.totals.sodium_mg !== undefined && {
-        sodium_mg: roundMacro(body.totals.sodium_mg),
-      }),
-    };
+    // Build the update payload
+    const updatePayload: Record<string, unknown> = {};
+
+    if (hasTotals) {
+      const t = body.totals!;
+      updatePayload.totals = {
+        ...existing.totals,
+        ...(t.calories !== undefined && { calories: roundCalories(t.calories) }),
+        ...(t.protein_g !== undefined && { protein_g: roundMacro(t.protein_g) }),
+        ...(t.carbs_g !== undefined && { carbs_g: roundMacro(t.carbs_g) }),
+        ...(t.fat_g !== undefined && { fat_g: roundMacro(t.fat_g) }),
+        ...(t.fiber_g !== undefined && { fiber_g: roundMacro(t.fiber_g) }),
+        ...(t.sugar_g !== undefined && { sugar_g: roundMacro(t.sugar_g) }),
+        ...(t.sodium_mg !== undefined && { sodium_mg: roundMacro(t.sodium_mg) }),
+      };
+    }
+
+    if (mealTimeIso) updatePayload.meal_time = mealTimeIso;
 
     const { data, error } = await supabase
       .from("meal_logs")
-      .update({ totals: updatedTotals })
+      .update(updatePayload)
       .eq("id", body.id)
       .select()
       .single();
