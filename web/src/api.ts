@@ -3,20 +3,26 @@ import {
   GetWorkoutsResponse, WorkoutExercise, WorkoutTotals,
 } from './types'
 
+// New backend (Render + Neon). Set VITE_API_URL to the backend base URL.
+// Falls back to the old Supabase functions URL until VITE_API_URL is set,
+// so the cutover is a single env-var change with no downtime.
+const API_URL = import.meta.env.VITE_API_URL || ''
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || ''
 
-if (!SUPABASE_URL) {
-  console.error('VITE_SUPABASE_URL is not set! Please create a .env file with VITE_SUPABASE_URL=https://your-project.supabase.co')
-}
+const SUPABASE_FUNCTIONS_URL =
+  API_URL.replace(/\/$/, '') ||
+  (SUPABASE_URL ? `${SUPABASE_URL}/functions/v1` : '')
 
-const SUPABASE_FUNCTIONS_URL = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1` : ''
+if (!SUPABASE_FUNCTIONS_URL) {
+  console.error('No backend configured. Set VITE_API_URL (Render backend) or VITE_SUPABASE_URL.')
+}
 
 const TZ = () => Intl.DateTimeFormat().resolvedOptions().timeZone
 
 // Shared fetch helper with the same error handling used across the app
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!SUPABASE_URL) {
-    throw new Error('Supabase URL not configured. Please set VITE_SUPABASE_URL in your .env file.')
+  if (!SUPABASE_FUNCTIONS_URL) {
+    throw new Error('No backend configured. Set VITE_API_URL.')
   }
   const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -40,8 +46,8 @@ export async function getLogs(params?: {
   to?: string
   tz?: string
 }): Promise<GetLogsResponse> {
-  if (!SUPABASE_URL) {
-    throw new Error('Supabase URL not configured. Please set VITE_SUPABASE_URL in your .env file.')
+  if (!SUPABASE_FUNCTIONS_URL) {
+    throw new Error('No backend configured. Set VITE_API_URL.')
   }
 
   const searchParams = new URLSearchParams()
@@ -181,8 +187,8 @@ export async function logMeal(data: {
   assumptions: string[]
   speech: string
 }> {
-  if (!SUPABASE_URL) {
-    throw new Error('Supabase URL not configured. Please set VITE_SUPABASE_URL in your .env file.')
+  if (!SUPABASE_FUNCTIONS_URL) {
+    throw new Error('No backend configured. Set VITE_API_URL.')
   }
 
   const url = `${SUPABASE_FUNCTIONS_URL}/log-meal`
@@ -210,8 +216,8 @@ export async function logMeal(data: {
 }
 
 export async function deleteMeal(id: string): Promise<{ ok: boolean; id: string }> {
-  if (!SUPABASE_URL) {
-    throw new Error('Supabase URL not configured. Please set VITE_SUPABASE_URL in your .env file.')
+  if (!SUPABASE_FUNCTIONS_URL) {
+    throw new Error('No backend configured. Set VITE_API_URL.')
   }
 
   const url = `${SUPABASE_FUNCTIONS_URL}/delete-meal`
@@ -250,8 +256,8 @@ export async function updateMeal(
   },
   meal_time?: string
 ): Promise<{ ok: boolean; data: any }> {
-  if (!SUPABASE_URL) {
-    throw new Error('Supabase URL not configured. Please set VITE_SUPABASE_URL in your .env file.')
+  if (!SUPABASE_FUNCTIONS_URL) {
+    throw new Error('No backend configured. Set VITE_API_URL.')
   }
 
   const url = `${SUPABASE_FUNCTIONS_URL}/update-meal`
